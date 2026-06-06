@@ -201,6 +201,46 @@ export async function reactivateUser(
 }
 
 // ══════════════════════════════════════════════════════════════
+// deleteUser — Eliminación permanente de cuenta
+// ══════════════════════════════════════════════════════════════
+// A diferencia de deactivateUser (desactivación reversible),
+// deleteUser limpia también setup_token para que la cuenta
+// no pueda reactivarse incluso con un token de activación previo.
+// La sesión activa del usuario, si existe, quedará invalidada
+// en el próximo heartbeat (máx. 30 s).
+export async function deleteUser(userId: string): Promise<UserActionResult> {
+  const session = await requireAdmin()
+
+  if (userId === session.userId) {
+    return { success: false, error: 'No puedes eliminar tu propia cuenta' }
+  }
+
+  const supabase = createSupabaseServer()
+
+  // .eq('is_admin', false) impide eliminar a otro admin aunque el frontend
+  // ya oculta la acción para usuarios con is_admin = true.
+  const { data, error } = await supabase
+    .from('users')
+    .update({
+      is_active:              false,
+      setup_token:            null,
+      setup_token_expires_at: null,
+    })
+    .eq('id', userId)
+    .eq('is_admin', false)
+    .select('id')
+    .single()
+
+  if (error || !data) {
+    if (error) console.error('[deleteUser]', error.message)
+    return { success: false, error: 'No se pudo eliminar el usuario' }
+  }
+
+  revalidatePath('/admin')
+  return { success: true }
+}
+
+// ══════════════════════════════════════════════════════════════
 // regenerateSetupToken — Regenerar código de activación
 // ══════════════════════════════════════════════════════════════
 export async function regenerateSetupToken(

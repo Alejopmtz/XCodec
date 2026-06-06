@@ -7,6 +7,7 @@ import {
   RefreshCw,
   UserX,
   UserCheck,
+  Trash2,
   Loader2,
 } from 'lucide-react'
 import {
@@ -21,6 +22,8 @@ import {
   reactivateUser,
   regenerateSetupToken,
 } from '@/actions/users'
+import { DeleteUserModal } from './DeleteUserModal'
+import { useToastStore } from '@/store/toastStore'
 import { getUserStatus, type UserWithStatus } from '@/types/admin'
 
 interface UserActionsDropdownProps {
@@ -37,9 +40,11 @@ export function UserActionsDropdown({
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [actionError, setActionError] = useState<string | null>(null)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
 
-  const status = getUserStatus(user)
-  const isSelf = user.id === currentUserId
+  const showToast = useToastStore((s) => s.showToast)
+  const status    = getUserStatus(user)
+  const isSelf    = user.id === currentUserId
 
   // Admin no tiene acciones disponibles sobre sí mismo ni sobre otro admin
   if (isSelf || user.is_admin) {
@@ -59,8 +64,10 @@ export function UserActionsDropdown({
     const result = await deactivateUser(user.id)
     if (!result.success) {
       setActionError(result.error)
+      showToast('error', result.error)
       return
     }
+    showToast('success', `@${user.username} desactivado`)
     router.refresh()
   }
 
@@ -68,8 +75,10 @@ export function UserActionsDropdown({
     const result = await reactivateUser(user.id)
     if (!result.success) {
       setActionError(result.error)
+      showToast('error', result.error)
       return
     }
+    showToast('success', `@${user.username} reactivado`)
     router.refresh()
   }
 
@@ -77,6 +86,7 @@ export function UserActionsDropdown({
     const result = await regenerateSetupToken(user.id)
     if (!result.success) {
       setActionError(result.error)
+      showToast('error', result.error)
       return
     }
     onTokenRegenerated(result.username, result.setup_token)
@@ -84,69 +94,91 @@ export function UserActionsDropdown({
   }
 
   return (
-    <div className="flex items-center justify-end gap-2">
-      {/* Error inline */}
-      {actionError && (
-        <span className="text-signal-red text-xs font-mono truncate max-w-[160px]">
-          {actionError}
-        </span>
-      )}
+    <>
+      <div className="flex items-center justify-end gap-2">
+        {/* Error inline (fallback visual por si el toast falla) */}
+        {actionError && (
+          <span className="text-signal-red text-xs font-mono truncate max-w-[160px]">
+            {actionError}
+          </span>
+        )}
 
-      {isPending ? (
-        <Loader2 size={15} className="animate-spin text-text-muted" />
-      ) : (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              className="xc-btn-ghost h-7 w-7 p-0 flex items-center justify-center"
-              aria-label="Acciones del usuario"
+        {isPending ? (
+          <Loader2 size={15} className="animate-spin text-text-muted" />
+        ) : (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                className="xc-btn-ghost h-7 w-7 p-0 flex items-center justify-center"
+                aria-label="Acciones del usuario"
+              >
+                <MoreHorizontal size={15} />
+              </button>
+            </DropdownMenuTrigger>
+
+            <DropdownMenuContent
+              align="end"
+              className="w-52 bg-raised border-border shadow-elevation-2 font-mono"
             >
-              <MoreHorizontal size={15} />
-            </button>
-          </DropdownMenuTrigger>
+              {/* Regenerar código — solo usuarios pendientes */}
+              {status === 'pending' && (
+                <>
+                  <DropdownMenuItem
+                    onClick={() => run(handleRegenerate)}
+                    className="flex items-center gap-2.5 text-sm text-text-secondary hover:text-text cursor-pointer focus:bg-overlay focus:text-text"
+                  >
+                    <RefreshCw size={14} />
+                    Regenerar código
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator className="bg-border-subtle" />
+                </>
+              )}
 
-          <DropdownMenuContent
-            align="end"
-            className="w-48 bg-raised border-border shadow-elevation-2 font-mono"
-          >
-            {/* Regenerar código — solo usuarios pendientes */}
-            {status === 'pending' && (
-              <>
+              {/* Desactivar — usuarios activos o pendientes */}
+              {(status === 'active' || status === 'pending') && (
                 <DropdownMenuItem
-                  onClick={() => run(handleRegenerate)}
-                  className="flex items-center gap-2.5 text-sm text-text-secondary hover:text-text cursor-pointer focus:bg-overlay focus:text-text"
+                  onClick={() => run(handleDeactivate)}
+                  className="flex items-center gap-2.5 text-sm text-signal-red hover:text-signal-red cursor-pointer focus:bg-signal-red/8 focus:text-signal-red"
                 >
-                  <RefreshCw size={14} />
-                  Regenerar código
+                  <UserX size={14} />
+                  Desactivar cuenta
                 </DropdownMenuItem>
-                <DropdownMenuSeparator className="bg-border-subtle" />
-              </>
-            )}
+              )}
 
-            {/* Desactivar — usuarios activos o pendientes */}
-            {(status === 'active' || status === 'pending') && (
+              {/* Reactivar — usuarios desactivados */}
+              {status === 'inactive' && (
+                <DropdownMenuItem
+                  onClick={() => run(handleReactivate)}
+                  className="flex items-center gap-2.5 text-sm text-signal-green hover:text-signal-green cursor-pointer focus:bg-signal-green/8 focus:text-signal-green"
+                >
+                  <UserCheck size={14} />
+                  Reactivar cuenta
+                </DropdownMenuItem>
+              )}
+
+              {/* ── Separador + Eliminar (siempre visible) ──── */}
+              <DropdownMenuSeparator className="bg-border-subtle" />
+
               <DropdownMenuItem
-                onClick={() => run(handleDeactivate)}
+                onClick={() => setShowDeleteModal(true)}
                 className="flex items-center gap-2.5 text-sm text-signal-red hover:text-signal-red cursor-pointer focus:bg-signal-red/8 focus:text-signal-red"
               >
-                <UserX size={14} />
-                Desactivar cuenta
+                <Trash2 size={14} />
+                Eliminar usuario
               </DropdownMenuItem>
-            )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+      </div>
 
-            {/* Reactivar — usuarios desactivados */}
-            {status === 'inactive' && (
-              <DropdownMenuItem
-                onClick={() => run(handleReactivate)}
-                className="flex items-center gap-2.5 text-sm text-signal-green hover:text-signal-green cursor-pointer focus:bg-signal-green/8 focus:text-signal-green"
-              >
-                <UserCheck size={14} />
-                Reactivar cuenta
-              </DropdownMenuItem>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
+      {/* Modal de confirmación de borrado */}
+      {showDeleteModal && (
+        <DeleteUserModal
+          user={user}
+          onClose={() => setShowDeleteModal(false)}
+          onDeleted={() => router.refresh()}
+        />
       )}
-    </div>
+    </>
   )
 }

@@ -86,3 +86,44 @@ export async function deleteMessage(
 
   return { success: true }
 }
+
+// ══════════════════════════════════════════════════════════════
+// clearAllMessages — Borrado total del historial (solo admin)
+// ══════════════════════════════════════════════════════════════
+// Elimina FÍSICAMENTE todos los mensajes. Acción irreversible.
+// El cliente admin emite un broadcast Supabase 'chat_cleared'
+// tras recibir { success: true } para que todos los clientes
+// conectados vacíen su store en tiempo real.
+export async function clearAllMessages(): Promise<{
+  success: boolean
+  error?: string
+}> {
+  let session: SessionData
+  try {
+    session = await requireAuth()
+  } catch {
+    return { success: false, error: 'No autenticado' }
+  }
+
+  if (!session.isAdmin) {
+    return { success: false, error: 'No autorizado' }
+  }
+
+  const supabase = createSupabaseServer()
+
+  // DELETE FROM messages WHERE id IS NOT NULL
+  // → elimina todas las filas (id es PK obligatorio, nunca null).
+  // service_role key bypasa RLS, por lo que el filtro funciona
+  // independientemente de las políticas activas.
+  const { error } = await supabase
+    .from('messages')
+    .delete()
+    .not('id', 'is', null)
+
+  if (error) {
+    console.error('[clearAllMessages]', error.message)
+    return { success: false, error: 'Error al limpiar el historial' }
+  }
+
+  return { success: true }
+}

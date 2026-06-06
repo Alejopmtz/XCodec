@@ -4,6 +4,7 @@ import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useChatStore } from '@/store/chatStore'
 import { useRealtimeMessages } from '@/hooks/useRealtimeMessages'
+import { useRealtimeSystem }   from '@/hooks/useRealtimeSystem'
 import { useOnlineUsers } from '@/hooks/useOnlineUsers'
 import { ChatHeader } from './ChatHeader'
 import { MessageList } from './MessageList'
@@ -49,6 +50,11 @@ export function ChatShell({
 
   // ── Realtime: mensajes nuevos ─────────────────────────────
   useRealtimeMessages()
+
+  // ── Realtime: eventos de sistema (chat_cleared, etc.) ─────
+  // Cuando el admin limpia el historial, todos los clientes
+  // reciben el broadcast y vacían su store inmediatamente.
+  useRealtimeSystem()
 
   // ── Presence: usuarios online ─────────────────────────────
   const { onlineUsers } = useOnlineUsers({
