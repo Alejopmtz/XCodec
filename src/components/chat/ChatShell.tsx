@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { useChatStore } from '@/store/chatStore'
 import { useRealtimeMessages } from '@/hooks/useRealtimeMessages'
 import { useOnlineUsers } from '@/hooks/useOnlineUsers'
@@ -56,15 +57,27 @@ export function ChatShell({
     displayName: currentDisplayName,
   })
 
+  const router = useRouter()
+
   // ── Heartbeat: actualizar last_seen cada 30 s ─────────────
+  // También detecta si el admin desactivó al usuario durante la sesión:
+  // si el servidor responde 401, la sesión se destruyó server-side y
+  // redirigimos a /login inmediatamente (máx. 30 s de lag).
   useEffect(() => {
     async function beat() {
-      await fetch('/api/heartbeat', { method: 'POST' })
+      try {
+        const res = await fetch('/api/heartbeat', { method: 'POST' })
+        if (res.status === 401) {
+          router.replace('/login')
+        }
+      } catch {
+        // Fallo de red — no redirigir, reintentar en el siguiente ciclo
+      }
     }
-    beat() // inmediatamente al montar
+    beat()
     const id = setInterval(beat, 30_000)
     return () => clearInterval(id)
-  }, [])
+  }, [router])
 
   return (
     <div className="flex h-screen flex-col bg-base overflow-hidden">

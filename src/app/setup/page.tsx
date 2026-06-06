@@ -6,6 +6,8 @@ import { SetupPasswordForm } from '@/components/auth/SetupPasswordForm'
 export const metadata: Metadata = {
   title: 'Activar Cuenta — XCodec',
   description: 'Primer acceso: crea tu contraseña',
+  // Ruta técnica interna — no indexar en buscadores
+  robots: { index: false, follow: false },
 }
 
 export default function SetupPage() {

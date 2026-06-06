@@ -6,6 +6,8 @@ import { LoginForm } from '@/components/auth/LoginForm'
 export const metadata: Metadata = {
   title: 'Acceso — XCodec',
   description: 'Sistema privado de mensajería',
+  // Página privada — no indexar en buscadores
+  robots: { index: false, follow: false },
 }
 
 // LoginForm usa useSearchParams internamente → necesita Suspense

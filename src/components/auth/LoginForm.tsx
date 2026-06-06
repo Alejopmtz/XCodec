@@ -2,9 +2,15 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Eye, EyeOff, LogIn, Loader2 } from 'lucide-react'
+import {
+  Eye, EyeOff, LogIn, Loader2,
+  KeyRound, ArrowLeft,
+} from 'lucide-react'
 import { signIn } from '@/actions/auth'
+import { SetupPasswordForm } from './SetupPasswordForm'
 import type { LoginInput } from '@/lib/validations/auth'
+
+type Mode = 'login' | 'setup'
 
 // Acepta solo rutas relativas internas: empieza por '/' pero NO por '//'
 // Rechaza protocol-relative URLs (//evil.com) que algunos navegadores
@@ -14,17 +20,63 @@ function sanitizeNextUrl(raw: string | null): string {
   return '/chat'
 }
 
+// ── Modo activación de cuenta ─────────────────────────────────
+function SetupMode({ onBack }: { onBack: () => void }) {
+  return (
+    <div className="space-y-5">
+
+      {/* Cabecera del modo setup */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={onBack}
+            className="flex items-center justify-center h-7 w-7 rounded text-text-muted hover:text-text hover:bg-raised transition-colors duration-150"
+            aria-label="Volver al inicio de sesión"
+          >
+            <ArrowLeft size={15} />
+          </button>
+          <div className="flex items-center gap-2">
+            <KeyRound
+              size={14}
+              className="text-signal-green shrink-0"
+              style={{ filter: 'drop-shadow(0 0 5px rgba(63,185,80,0.4))' }}
+            />
+            <span className="font-mono font-semibold text-sm text-text tracking-[0.06em]">
+              PRIMER ACCESO
+            </span>
+          </div>
+        </div>
+
+        <p className="text-xs text-text-secondary font-mono leading-relaxed pl-10">
+          Activa tu cuenta con el código que te proporcionó el administrador.
+        </p>
+
+        <div className="h-px bg-border-subtle" />
+      </div>
+
+      {/* Formulario de activación */}
+      <SetupPasswordForm />
+
+    </div>
+  )
+}
+
+// ── Modo inicio de sesión ─────────────────────────────────────
 export function LoginForm() {
-  const router = useRouter()
+  const router       = useRouter()
   const searchParams = useSearchParams()
+  const [mode, setMode]       = useState<Mode>('login')
   const [isPending, startTransition] = useTransition()
   const [showPassword, setShowPassword] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [shake, setShake] = useState(false)
-  const [fields, setFields] = useState<LoginInput>({
-    username: '',
-    password: '',
-  })
+  const [error,  setError]  = useState<string | null>(null)
+  const [shake,  setShake]  = useState(false)
+  const [fields, setFields] = useState<LoginInput>({ username: '', password: '' })
+
+  // Si el usuario está en modo setup, renderizar esa vista
+  if (mode === 'setup') {
+    return <SetupMode onBack={() => setMode('login')} />
+  }
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const { name, value } = e.target
@@ -83,9 +135,7 @@ export function LoginForm() {
           placeholder="tu_usuario"
           className={[
             'xc-input',
-            error
-              ? 'border-signal-red focus:border-signal-red focus:shadow-glow-red'
-              : '',
+            error ? 'border-signal-red focus:border-signal-red focus:shadow-glow-red' : '',
           ].join(' ')}
           aria-invalid={!!error}
           aria-describedby={error ? 'auth-error' : undefined}
@@ -110,9 +160,7 @@ export function LoginForm() {
             placeholder="••••••••"
             className={[
               'xc-input pr-11',
-              error
-                ? 'border-signal-red focus:border-signal-red focus:shadow-glow-red'
-                : '',
+              error ? 'border-signal-red focus:border-signal-red focus:shadow-glow-red' : '',
             ].join(' ')}
             aria-invalid={!!error}
           />
@@ -142,7 +190,7 @@ export function LoginForm() {
         </div>
       )}
 
-      {/* ── Submit ───────────────────────────────────────── */}
+      {/* ── Iniciar sesión ───────────────────────────────── */}
       <button
         type="submit"
         disabled={isDisabled}
@@ -160,6 +208,24 @@ export function LoginForm() {
           </>
         )}
       </button>
+
+      {/* ── Separador ────────────────────────────────────── */}
+      <div className="flex items-center gap-3 pt-1">
+        <div className="h-px flex-1 bg-border-subtle" />
+        <span className="text-2xs text-text-muted font-mono tracking-[0.12em]">o</span>
+        <div className="h-px flex-1 bg-border-subtle" />
+      </div>
+
+      {/* ── Primer ingreso ───────────────────────────────── */}
+      <button
+        type="button"
+        onClick={() => setMode('setup')}
+        className="xc-btn-ghost w-full flex items-center justify-center gap-2 text-xs text-text-secondary"
+      >
+        <KeyRound size={13} className="text-signal-green" />
+        Primer ingreso
+      </button>
+
     </form>
   )
 }
