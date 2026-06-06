@@ -3,7 +3,6 @@
 import { useState, useTransition } from 'react'
 import { AlertTriangle, MessageSquareX, X, Loader2 } from 'lucide-react'
 import { clearAllMessages } from '@/actions/chat'
-import { createSupabaseBrowser } from '@/lib/supabase/client'
 import { useToastStore } from '@/store/toastStore'
 
 interface ClearChatModalProps {
@@ -11,42 +10,6 @@ interface ClearChatModalProps {
 }
 
 const CONFIRM_TEXT = 'ELIMINAR CHAT'
-
-// ── Broadcast Supabase ────────────────────────────────────────
-// Notifica a todos los clientes del chat que el historial
-// ha sido borrado para que vacíen su store en tiempo real.
-// Se suscribe al canal, espera SUBSCRIBED y envía el evento.
-// El timeout de 5 s evita que una falla de red bloquee el flujo.
-async function broadcastChatCleared(): Promise<void> {
-  const supabase = createSupabaseBrowser()
-  const channel  = supabase.channel('xc-system')
-
-  await new Promise<void>((resolve) => {
-    const fallback = setTimeout(() => {
-      void supabase.removeChannel(channel)
-      resolve()
-    }, 5_000)
-
-    channel.subscribe((status) => {
-      if (status === 'SUBSCRIBED') {
-        void channel
-          .send({ type: 'broadcast', event: 'chat_cleared', payload: {} })
-          .then(() => {
-            clearTimeout(fallback)
-            void supabase.removeChannel(channel)
-            resolve()
-          })
-          .catch(() => {
-            clearTimeout(fallback)
-            void supabase.removeChannel(channel)
-            resolve()
-          })
-      }
-    })
-  })
-}
-
-// ─────────────────────────────────────────────────────────────
 
 export function ClearChatModal({ onClose }: ClearChatModalProps) {
   const [input,     setInput]     = useState('')
@@ -69,10 +32,9 @@ export function ClearChatModal({ onClose }: ClearChatModalProps) {
         return
       }
 
-      // Emitir broadcast *después* de que el DELETE haya completado.
-      // Los clientes del chat recibirán el evento y vaciarán su store.
-      await broadcastChatCleared()
-
+      // La señal de sincronización (chat_cleared) ya fue emitida
+      // por PostgreSQL vía WAL al confirmar la transacción de la RPC.
+      // No se requiere ninguna acción adicional en el cliente.
       showToast('success', 'Historial de chat eliminado correctamente')
       onClose()
     })

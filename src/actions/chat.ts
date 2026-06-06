@@ -90,10 +90,19 @@ export async function deleteMessage(
 // ══════════════════════════════════════════════════════════════
 // clearAllMessages — Borrado total del historial (solo admin)
 // ══════════════════════════════════════════════════════════════
-// Elimina FÍSICAMENTE todos los mensajes. Acción irreversible.
-// El cliente admin emite un broadcast Supabase 'chat_cleared'
-// tras recibir { success: true } para que todos los clientes
-// conectados vacíen su store en tiempo real.
+// Invoca la RPC clear_all_messages() que ejecuta en una única
+// transacción PostgreSQL:
+//   1. DELETE FROM messages        (borrado físico e irreversible)
+//   2. UPDATE system_events        (señal de sincronización)
+//
+// Al confirmar la transacción, PostgreSQL emite el cambio en
+// system_events vía WAL. Supabase Realtime lo entrega a todos
+// los clientes suscritos como postgres_changes UPDATE, y
+// useRealtimeSystem llama a chatStore.reset() en cada pestaña.
+//
+// La señalización ocurre server-side (WAL de PostgreSQL), no
+// desde el navegador del admin. No existe escenario donde los
+// mensajes queden borrados sin que los clientes sean notificados.
 export async function clearAllMessages(): Promise<{
   success: boolean
   error?: string
@@ -111,14 +120,7 @@ export async function clearAllMessages(): Promise<{
 
   const supabase = createSupabaseServer()
 
-  // DELETE FROM messages WHERE id IS NOT NULL
-  // → elimina todas las filas (id es PK obligatorio, nunca null).
-  // service_role key bypasa RLS, por lo que el filtro funciona
-  // independientemente de las políticas activas.
-  const { error } = await supabase
-    .from('messages')
-    .delete()
-    .not('id', 'is', null)
+  const { error } = await supabase.rpc('clear_all_messages')
 
   if (error) {
     console.error('[clearAllMessages]', error.message)

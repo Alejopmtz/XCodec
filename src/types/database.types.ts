@@ -87,6 +87,27 @@ export type Database = {
         ]
       }
 
+      // ── system_events ─────────────────────────────────────────
+      // Tabla de señalización servidor → clientes.
+      // Una fila por tipo de evento; `updated_at` actúa como
+      // vector de reloj: su cambio dispara el postgres_changes
+      // que useRealtimeSystem recibe y convierte en chatStore.reset().
+      system_events: {
+        Row: {
+          key:        string  // PK — identificador del evento ('chat_cleared')
+          updated_at: string  // TIMESTAMPTZ ISO — versión del evento
+        }
+        Insert: {
+          key:         string
+          updated_at?: string
+        }
+        Update: {
+          key?:        string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+
       // ── messages ───────────────────────────────────────────────
       messages: {
         Row: {
@@ -155,6 +176,12 @@ export type Database = {
       }
       update_last_seen: {
         Args:    { p_user_id: string }
+        Returns: undefined
+      }
+      // Borra todos los mensajes y actualiza system_events en una
+      // transacción atómica. Solo invocable con service_role key.
+      clear_all_messages: {
+        Args:    Record<PropertyKey, never>
         Returns: undefined
       }
     }
