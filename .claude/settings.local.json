@@ -7,7 +7,12 @@
       "Bash(npx tsc *)",
       "Bash(npm run *)",
       "Bash(git add *)",
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "Bash(npm info *)",
+      "Bash(npm install *)",
+      "Bash(npm audit *)",
+      "Bash(npm list *)",
+      "Bash(git push *)"
     ]
   }
 }
