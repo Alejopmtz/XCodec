@@ -8,10 +8,29 @@
  * Reglas de diseño:
  *   - La contraseña se genera en el servidor en tiempo de ejecución.
  *   - Nunca se almacena en base de datos ni en logs.
- *   - Cambia cada día a medianoche (hora del servidor / UTC).
+ *   - Cambia cada día a medianoche UTC (no hora local del admin).
  *   - La sesión de 7 días permite al admin seguir conectado
  *     sin necesidad de re-autenticar cada día.
  *   - Solo es necesaria para NUEVOS inicios de sesión.
+ *
+ * ⚠️  ZONA HORARIA EN VERCEL (producción):
+ *   Vercel ejecuta las funciones en UTC (TZ=UTC sin posibilidad de cambio).
+ *   `new Date()` devuelve la hora UTC, NO la hora local del administrador.
+ *
+ *   Consecuencia práctica:
+ *     Si el admin está en UTC+2 (España, verano):
+ *       - La contraseña cambia a las 02:00 AM hora local (00:00 UTC).
+ *       - Entre medianoche y las 02:00 AM hora local, la contraseña
+ *         ya corresponde al día siguiente (fecha UTC).
+ *
+ *   Ejemplo (España, verano UTC+2):
+ *     A las 01:30 AM del 07/06, en el servidor ya es 06/06/2026 23:30 UTC
+ *     → la contraseña esperada es XC060626D (día 6), NO XC070626D.
+ *     A las 02:01 AM del 07/06, en el servidor ya es 07/06/2026 00:01 UTC
+ *     → la contraseña esperada es XC070626D (día 7).
+ *
+ *   Regla de oro: calcular la contraseña según la FECHA UTC, no la local.
+ *   La fecha UTC actual siempre está disponible en: https://time.is/UTC
  */
 
 /**
