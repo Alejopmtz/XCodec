@@ -5,7 +5,9 @@
       "Bash(New-Item -ItemType File -Path \"C:\\\\Users\\\\Dpombo\\\\Documents\\\\xcodec\\\\supabase\\\\migrations\\\\20240601000003_functions.sql\" -Force)",
       "Bash(Out-Null)",
       "Bash(npx tsc *)",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)"
     ]
   }
 }
