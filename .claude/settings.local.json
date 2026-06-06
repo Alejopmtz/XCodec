@@ -12,7 +12,8 @@
       "Bash(npm install *)",
       "Bash(npm audit *)",
       "Bash(npm list *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(node -e ' *)"
     ]
   }
 }
