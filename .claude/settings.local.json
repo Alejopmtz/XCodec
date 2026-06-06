@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(New-Item -ItemType Directory -Force -Path \"C:\\\\Users\\\\Dpombo\\\\Documents\\\\xcodec\\\\supabase\\\\migrations\")",
+      "Bash(New-Item -ItemType File -Path \"C:\\\\Users\\\\Dpombo\\\\Documents\\\\xcodec\\\\supabase\\\\migrations\\\\20240601000003_functions.sql\" -Force)",
+      "Bash(Out-Null)"
+    ]
+  }
+}
