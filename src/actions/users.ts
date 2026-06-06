@@ -8,6 +8,7 @@ import { sessionOptions, type SessionData } from '@/lib/session'
 import { createUserSchema } from '@/lib/validations/users'
 import { createSupabaseServer } from '@/lib/supabase/server'
 import type { UserWithStatus } from '@/types/admin'
+import type { DbUser } from '@/types/database.types'
 
 // ── Tipos de retorno ──────────────────────────────────────────
 
@@ -53,11 +54,13 @@ export async function getUsers(): Promise<GetUsersResult> {
   await requireAdmin()
 
   const supabase = createSupabaseServer()
+
+  // select('*') → infiere DbUser[] sin ambigüedad en TypeScript strict.
+  // El cast a UserWithStatus[] es seguro: UserWithStatus es un subconjunto
+  // de DbUser (todas sus propiedades existen en la Row completa).
   const { data, error } = await supabase
     .from('users')
-    .select(
-      'id, username, display_name, is_admin, is_active, password_set, last_seen, created_at, setup_token'
-    )
+    .select('*')
     .order('created_at', { ascending: true })
 
   if (error) {
@@ -65,7 +68,21 @@ export async function getUsers(): Promise<GetUsersResult> {
     return { success: false, error: 'Error al cargar usuarios' }
   }
 
-  return { success: true, users: (data ?? []) as UserWithStatus[] }
+  // Mapear explícitamente en lugar de castear ciegamente: garantiza que
+  // UserWithStatus solo expone las columnas definidas, nunca password_hash.
+  const users: UserWithStatus[] = (data ?? []).map((row: DbUser) => ({
+    id:           row.id,
+    username:     row.username,
+    display_name: row.display_name,
+    is_admin:     row.is_admin,
+    is_active:    row.is_active,
+    password_set: row.password_set,
+    last_seen:    row.last_seen,
+    created_at:   row.created_at,
+    setup_token:  row.setup_token,
+  }))
+
+  return { success: true, users }
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -89,6 +106,7 @@ export async function createUser(
 
   const supabase = createSupabaseServer()
 
+  // Verificar duplicado antes de insertar
   const { data: existing } = await supabase
     .from('users')
     .select('id')
@@ -100,20 +118,18 @@ export async function createUser(
   }
 
   const setupToken = makeSetupToken()
-  const expiresAt = new Date(
-    Date.now() + 7 * 24 * 60 * 60 * 1000
-  ).toISOString()
+  const expiresAt  = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
 
   const { error: insertError } = await supabase.from('users').insert({
     username,
     display_name,
-    password_hash: null,
-    password_set: false,
-    setup_token: setupToken,
+    password_hash:          null,
+    password_set:           false,
+    setup_token:            setupToken,
     setup_token_expires_at: expiresAt,
-    is_admin: false,
-    is_active: true,
-    created_by: session.userId,
+    is_admin:               false,
+    is_active:              true,
+    created_by:             session.userId,
   })
 
   if (insertError) {
@@ -144,8 +160,6 @@ export async function deactivateUser(
 
   // .select('id').single() detecta 0 filas afectadas (usuario inexistente
   // o intento de desactivar un admin rechazado por .eq('is_admin', false)).
-  // Sin esta comprobación, Supabase devuelve error=null con 0 rows y la
-  // acción retornaría success:true aunque no haya ocurrido nada.
   const { data, error } = await supabase
     .from('users')
     .update({ is_active: false })
@@ -195,15 +209,16 @@ export async function regenerateSetupToken(
   await requireAdmin()
 
   const newToken = makeSetupToken()
-  const expiresAt = new Date(
-    Date.now() + 7 * 24 * 60 * 60 * 1000
-  ).toISOString()
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
 
   const supabase = createSupabaseServer()
+
+  // select('username') sobre UPDATE: Supabase infiere correctamente
+  // Pick<DbUser, 'username'> para selects de una sola columna conocida.
   const { data: user, error } = await supabase
     .from('users')
     .update({
-      setup_token: newToken,
+      setup_token:            newToken,
       setup_token_expires_at: expiresAt,
     })
     .eq('id', userId)

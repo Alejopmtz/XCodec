@@ -6,9 +6,9 @@ import { createSupabaseBrowser } from '@/lib/supabase/client'
 import { useChatStore } from '@/store/chatStore'
 import type { MessageWithSender } from '@/types/chat'
 
-// Suscripción a INSERT en la tabla messages via Supabase Realtime.
+// Suscripción a INSERT/UPDATE en messages via Supabase Realtime.
 // Cuando llega un nuevo mensaje, enriquece con datos del sender y
-// lo añade al store.
+// lo añade al store. En UPDATE detecta soft delete y marca en store.
 export function useRealtimeMessages() {
   const appendMessage = useChatStore((s) => s.appendMessage)
   const markDeleted   = useChatStore((s) => s.markDeleted)
@@ -31,12 +31,16 @@ export function useRealtimeMessages() {
             created_at: string
           }
 
-          // Enriquecer con info del sender
+          // Enriquecer con datos del sender.
+          // .returns<>() anula la inferencia de template literal types de Supabase
+          // que puede producir `data: never` en TypeScript strict mode al parsear
+          // strings de columnas parciales.
           const { data: sender } = await supabase
             .from('users')
             .select('username, display_name')
             .eq('id', raw.sender_id)
-            .single()
+            .returns<{ username: string; display_name: string }[]>()
+            .maybeSingle()
 
           const msg: MessageWithSender = {
             id:                  raw.id,

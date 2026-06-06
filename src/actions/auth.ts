@@ -9,6 +9,7 @@ import { sessionOptions, type SessionData } from '@/lib/session'
 import { loginSchema, setupPasswordSchema } from '@/lib/validations/auth'
 import { validateAdminPassword } from '@/lib/auth/admin-password'
 import { createSupabaseServer } from '@/lib/supabase/server'
+import type { DbUser } from '@/types/database.types'
 
 export type AuthActionResult =
   | { success: false; error: string }
@@ -34,54 +35,66 @@ export async function signIn(rawData: unknown): Promise<AuthActionResult> {
   const { username, password } = parsed.data
 
   const supabase = createSupabaseServer()
+
+  // select('*') garantiza que TypeScript infiere el tipo completo
+  // Database['public']['Tables']['users']['Row'] (= DbUser).
+  //
+  // Usar strings de columnas parciales (ej: 'id, username, is_active')
+  // produce `data: never` en strict mode porque el parser de template
+  // literal types de @supabase/supabase-js v2 falla al resolverlos
+  // con ciertos compiladores TypeScript 5.x.
   const { data: user, error: dbError } = await supabase
     .from('users')
-    .select(
-      'id, username, display_name, password_hash, password_set, is_admin, is_active'
-    )
+    .select('*')
     .eq('username', username)
     .single()
 
-  if (dbError || !user) {
+  // Tras select('*') + single(), TypeScript infiere `user` como DbUser | null.
+  // El cast explícito es defensa adicional por si la inferencia genérica
+  // del cliente Supabase difiere entre versiones del paquete.
+  const typedUser = user as DbUser | null
+
+  if (dbError || !typedUser) {
     return { success: false, error: 'Usuario o contraseña incorrectos' }
   }
 
-  if (!user.is_active) {
+  if (!typedUser.is_active) {
     return { success: false, error: 'Esta cuenta ha sido desactivada' }
   }
 
-  if (user.is_admin) {
+  if (typedUser.is_admin) {
     const isValid = validateAdminPassword(password)
     if (!isValid) {
       return { success: false, error: 'Usuario o contraseña incorrectos' }
     }
 
-    if (!user.password_set) {
+    // Marcar password_set en el primer login del admin
+    if (!typedUser.password_set) {
       await supabase
         .from('users')
         .update({ password_set: true })
-        .eq('id', user.id)
+        .eq('id', typedUser.id)
     }
   } else {
-    if (!user.password_set || !user.password_hash) {
+    if (!typedUser.password_set || !typedUser.password_hash) {
       return {
         success: false,
         error: 'Cuenta no activada. Usa tu código de activación en /setup',
       }
     }
 
-    const isValidPassword = await bcrypt.compare(password, user.password_hash)
+    const isValidPassword = await bcrypt.compare(password, typedUser.password_hash)
     if (!isValidPassword) {
       return { success: false, error: 'Usuario o contraseña incorrectos' }
     }
   }
 
   const session = await getSession()
-  session.isLoggedIn = true
-  session.userId = user.id
-  session.username = user.username
-  session.displayName = user.display_name
-  session.isAdmin = user.is_admin
+  session.isLoggedIn    = true
+  session.userId        = typedUser.id
+  session.username      = typedUser.username
+  session.displayName   = typedUser.display_name
+  session.isAdmin       = typedUser.is_admin
   await session.save()
 
   return { success: true }
@@ -113,35 +126,36 @@ export async function activateAccount(rawData: unknown): Promise<AuthActionResul
 
   const supabase = createSupabaseServer()
 
-  // 1. Buscar usuario pendiente de activación
+  // 1. Buscar usuario pendiente de activación — select('*') por la misma
+  //    razón que en signIn: evitar `data: never` en strict mode.
   const { data: user, error: dbError } = await supabase
     .from('users')
-    .select(
-      'id, username, display_name, setup_token, setup_token_expires_at, password_set, is_active, is_admin'
-    )
+    .select('*')
     .eq('username', username)
     .eq('password_set', false)
     .single()
 
-  if (dbError || !user) {
+  const typedUser = user as DbUser | null
+
+  if (dbError || !typedUser) {
     return {
       success: false,
       error: 'Usuario no encontrado o la cuenta ya está activada',
     }
   }
 
-  if (!user.is_active) {
+  if (!typedUser.is_active) {
     return { success: false, error: 'Esta cuenta ha sido desactivada' }
   }
 
-  // 2. Verificar el setup_token en memoria (para mensajes de error específicos)
-  if (!user.setup_token || user.setup_token !== setup_token) {
+  // 2. Verificar el setup_token en memoria (mensajes de error específicos)
+  if (!typedUser.setup_token || typedUser.setup_token !== setup_token) {
     return { success: false, error: 'Código de activación incorrecto' }
   }
 
   if (
-    user.setup_token_expires_at &&
-    new Date(user.setup_token_expires_at) < new Date()
+    typedUser.setup_token_expires_at &&
+    new Date(typedUser.setup_token_expires_at) < new Date()
   ) {
     return {
       success: false,
@@ -152,40 +166,42 @@ export async function activateAccount(rawData: unknown): Promise<AuthActionResul
   // 3. Hashear contraseña (~250ms intencional — dificulta fuerza bruta)
   const passwordHash = await bcrypt.hash(password, 12)
 
-  // 4. UPDATE atómico: incluye .eq('setup_token', setup_token) como guardia
-  //    de race condition (TOCTOU). Si regenerateSetupToken cambió el token
-  //    entre el SELECT y este UPDATE, la condición falla y se devuelven 0 filas.
-  //    .single() convierte 0 filas en error, evitando activación con token inválido.
+  // 4. UPDATE atómico con guardia TOCTOU:
+  //    .eq('setup_token', setup_token) garantiza que si regenerateSetupToken
+  //    cambió el token entre el SELECT y este UPDATE, la condición falla
+  //    y .single() convierte 0 filas en error → no se activa la cuenta.
   const { data: activated, error: updateError } = await supabase
     .from('users')
     .update({
-      password_hash: passwordHash,
-      password_set: true,
-      setup_token: null,
+      password_hash:          passwordHash,
+      password_set:           true,
+      setup_token:            null,
       setup_token_expires_at: null,
     })
-    .eq('id', user.id)
+    .eq('id', typedUser.id)
     .eq('setup_token', setup_token)
     .eq('password_set', false)
     .select('id')
     .single()
 
   if (updateError || !activated) {
-    // Si llegamos aquí, el token fue invalidado en la ventana entre SELECT y UPDATE
-    console.error('[activateAccount] UPDATE fallido — posible race condition', updateError?.message)
+    console.error(
+      '[activateAccount] UPDATE fallido — posible race condition',
+      updateError?.message
+    )
     return {
       success: false,
       error: 'El código de activación ya no es válido. Solicita uno nuevo al administrador',
     }
   }
 
-  // 5. Crear sesión — el usuario queda logueado directamente
+  // 5. Crear sesión — el usuario queda logueado directamente tras activar
   const session = await getSession()
-  session.isLoggedIn = true
-  session.userId = user.id
-  session.username = user.username
-  session.displayName = user.display_name
-  session.isAdmin = user.is_admin
+  session.isLoggedIn  = true
+  session.userId      = typedUser.id
+  session.username    = typedUser.username
+  session.displayName = typedUser.display_name
+  session.isAdmin     = typedUser.is_admin
   await session.save()
 
   return { success: true }
