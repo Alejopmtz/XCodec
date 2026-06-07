@@ -90,17 +90,23 @@ export function ChatHeader({ displayName, isAdmin, onlineCount, onOpenUsersDrawe
         </Link>
       )}
 
-      {/* Logout */}
-      <form action={signOut}>
-        <button
-          type="submit"
-          className="xc-btn-ghost flex items-center gap-1.5 text-xs px-2 py-1"
-          title="Salir"
-        >
-          <LogOut size={13} />
-          <span className="hidden sm:inline">Salir</span>
-        </button>
-      </form>
+      {/* Logout
+       * Sin <form>: signOut es una Server Action invocada directamente
+       * desde onClick. En Next.js 15, las Server Actions son callable como
+       * funciones async desde Client Components sin necesidad de <form>.
+       * Eliminar el <form> del DOM de /chat suprime el trigger de iOS Safari
+       * que activa la AutoFill Toolbar (🔑) al detectar "contexto de formulario"
+       * en una página donde el usuario tiene credenciales guardadas.
+       */}
+      <button
+        type="button"
+        onClick={() => signOut()}
+        className="xc-btn-ghost flex items-center gap-1.5 text-xs px-2 py-1"
+        title="Salir"
+      >
+        <LogOut size={13} />
+        <span className="hidden sm:inline">Salir</span>
+      </button>
 
       </div>{/* /fila de contenido */}
     </header>
