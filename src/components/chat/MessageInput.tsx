@@ -136,7 +136,7 @@ export function MessageInput({
             onKeyDown={handleKeyDown}
             rows={1}
             placeholder="Escribe un mensaje…"
-            className="xc-input w-full resize-none overflow-y-auto leading-relaxed pr-2 py-2"
+            className="xc-input w-full resize-none overflow-y-auto leading-snug pr-2 py-2"
             style={{
               minHeight: '38px',
               maxHeight: '160px',
