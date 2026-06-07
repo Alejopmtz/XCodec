@@ -28,16 +28,22 @@ function getInitials(name: string): string {
 interface OnlineUsersListProps {
   users: OnlineUser[]
   currentUserId: string
+  /**
+   * Clases adicionales aplicadas al <aside>.
+   * Usado desde ChatShell para controlar visibilidad responsiva:
+   *   "hidden md:flex" → oculto en móvil, visible en desktop como sidebar.
+   */
+  className?: string
 }
 
-export function OnlineUsersList({ users, currentUserId }: OnlineUsersListProps) {
+export function OnlineUsersList({ users, currentUserId, className }: OnlineUsersListProps) {
   const [collapsed, setCollapsed] = useState(false)
 
   return (
     <aside
       className={`shrink-0 border-l border-border bg-surface flex flex-col transition-all duration-200 ${
         collapsed ? 'w-10' : 'w-52'
-      }`}
+      } ${className ?? ''}`}
     >
       {/* ── Cabecera ─────────────────────────────────────────── */}
       <div

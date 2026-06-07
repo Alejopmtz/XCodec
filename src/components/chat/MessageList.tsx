@@ -125,7 +125,13 @@ export function MessageList({
       <div
         ref={containerRef}
         className="h-full overflow-y-auto"
-        style={{ scrollbarWidth: 'thin', scrollbarColor: '#30363d transparent' }}
+        style={{
+            scrollbarWidth: 'thin',
+            scrollbarColor: '#30363d transparent',
+            // Previene que el scroll propague al body en iOS/Android:
+            // evita pull-to-refresh accidental y el bounce de página.
+            overscrollBehavior: 'contain',
+          }}
       >
         {/* Sentinel para paginación hacia arriba */}
         <div ref={topRef} className="h-1" />

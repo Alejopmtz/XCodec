@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useChatStore } from '@/store/chatStore'
 import { useRealtimeMessages } from '@/hooks/useRealtimeMessages'
@@ -10,6 +10,7 @@ import { ChatHeader } from './ChatHeader'
 import { MessageList } from './MessageList'
 import { MessageInput } from './MessageInput'
 import { OnlineUsersList } from './OnlineUsersList'
+import { UsersDrawer } from './UsersDrawer'
 import type { MessageWithSender } from '@/types/chat'
 
 const PAGE_SIZE = 50
@@ -63,6 +64,9 @@ export function ChatShell({
     displayName: currentDisplayName,
   })
 
+  // ── Drawer de usuarios online (solo móvil) ───────────────
+  const [drawerOpen, setDrawerOpen] = useState(false)
+
   const router = useRouter()
 
   // ── Heartbeat: actualizar last_seen cada 30 s ─────────────
@@ -93,12 +97,13 @@ export function ChatShell({
         displayName={currentDisplayName}
         isAdmin={isAdmin}
         onlineCount={onlineUsers.length}
+        onOpenUsersDrawer={() => setDrawerOpen(true)}
       />
 
       {/* ── Cuerpo: mensajes + sidebar ───────────────────────── */}
       <div className="flex flex-1 min-h-0">
 
-        {/* Panel principal */}
+        {/* Panel principal — ocupa 100% en móvil, resto en desktop */}
         <div className="flex flex-1 flex-col min-w-0">
           <MessageList
             currentUserId={currentUserId}
@@ -112,13 +117,31 @@ export function ChatShell({
           />
         </div>
 
-        {/* Sidebar usuarios online */}
+        {/*
+         * Sidebar usuarios online.
+         * hidden en móvil → los usuarios acceden al drawer desde el header.
+         * flex en md+ → layout de dos columnas en tablet y desktop.
+         */}
         <OnlineUsersList
           users={onlineUsers}
           currentUserId={currentUserId}
+          className="hidden md:flex"
         />
 
       </div>
+
+      {/*
+       * Drawer móvil de usuarios online.
+       * El componente se renderiza siempre pero el panel permanece
+       * translate-x-full (fuera de pantalla) cuando open=false.
+       * md:hidden interno garantiza que nunca aparezca en desktop.
+       */}
+      <UsersDrawer
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        users={onlineUsers}
+        currentUserId={currentUserId}
+      />
 
     </div>
   )

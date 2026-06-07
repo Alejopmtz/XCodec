@@ -8,9 +8,11 @@ interface ChatHeaderProps {
   displayName: string
   isAdmin: boolean
   onlineCount: number
+  /** Abre el drawer de usuarios (solo activo en móvil <md). */
+  onOpenUsersDrawer: () => void
 }
 
-export function ChatHeader({ displayName, isAdmin, onlineCount }: ChatHeaderProps) {
+export function ChatHeader({ displayName, isAdmin, onlineCount, onOpenUsersDrawer }: ChatHeaderProps) {
   return (
     <header className="shrink-0 border-b border-border bg-surface">
 
@@ -46,8 +48,21 @@ export function ChatHeader({ displayName, isAdmin, onlineCount }: ChatHeaderProp
         </span>
       </div>
 
-      {/* Indicador online */}
-      <div className="flex items-center gap-1.5">
+      {/*
+       * Indicador online.
+       * En móvil (<md): botón tappable que abre el UsersDrawer.
+       *   - rounded + hover/active para feedback táctil claro.
+       * En desktop (md+): pointer-events-none, sin cursor especial.
+       *   El sidebar siempre visible hace innecesario el click.
+       */}
+      <button
+        onClick={onOpenUsersDrawer}
+        className="flex items-center gap-1.5 rounded px-1.5 py-1
+          hover:bg-raised/50 active:bg-raised
+          md:pointer-events-none md:px-0 md:py-0 md:hover:bg-transparent
+          transition-colors duration-100"
+        title="Ver usuarios online"
+      >
         <span
           className="h-1.5 w-1.5 rounded-full bg-signal-green"
           style={{ boxShadow: '0 0 5px rgba(63,185,80,0.7)' }}
@@ -55,7 +70,7 @@ export function ChatHeader({ displayName, isAdmin, onlineCount }: ChatHeaderProp
         <span className="font-mono text-2xs text-text-muted tabular-nums">
           {onlineCount} online
         </span>
-      </div>
+      </button>
 
       <div className="flex-1" />
 
