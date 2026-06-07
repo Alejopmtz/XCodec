@@ -90,19 +90,15 @@ export async function deleteMessage(
 // ══════════════════════════════════════════════════════════════
 // clearAllMessages — Borrado total del historial (solo admin)
 // ══════════════════════════════════════════════════════════════
-// Invoca la RPC clear_all_messages() que ejecuta en una única
-// transacción PostgreSQL:
-//   1. DELETE FROM messages        (borrado físico e irreversible)
-//   2. UPDATE system_events        (señal de sincronización)
+// Elimina físicamente todos los mensajes directamente desde la tabla,
+// usando el cliente service_role (bypasa RLS). No depende de la RPC
+// clear_all_messages() ni de la tabla system_events (migración 006).
 //
-// Al confirmar la transacción, PostgreSQL emite el cambio en
-// system_events vía WAL. Supabase Realtime lo entrega a todos
-// los clientes suscritos como postgres_changes UPDATE, y
-// useRealtimeSystem llama a chatStore.reset() en cada pestaña.
-//
-// La señalización ocurre server-side (WAL de PostgreSQL), no
-// desde el navegador del admin. No existe escenario donde los
-// mensajes queden borrados sin que los clientes sean notificados.
+// Señalización a clientes:
+//   El DELETE genera eventos postgres_changes { event: 'DELETE' }
+//   en la tabla messages (publicada en supabase_realtime desde
+//   migración 002). useRealtimeSystem los recibe con debounce y
+//   llama a chatStore.reset() en todas las pestañas conectadas.
 export async function clearAllMessages(): Promise<{
   success: boolean
   error?: string
@@ -120,7 +116,13 @@ export async function clearAllMessages(): Promise<{
 
   const supabase = createSupabaseServer()
 
-  const { error } = await supabase.rpc('clear_all_messages')
+  // .not('id', 'is', null) es el filtro "toda la tabla" requerido
+  // por @supabase/supabase-js v2 para prevenir borrados accidentales sin filtro.
+  // Con service_role key, RLS no aplica: se borran todos los mensajes.
+  const { error } = await supabase
+    .from('messages')
+    .delete()
+    .not('id', 'is', null)
 
   if (error) {
     console.error('[clearAllMessages]', error.message)

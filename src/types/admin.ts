@@ -22,28 +22,9 @@ export function getUserStatus(
 }
 
 // ── Formatters ────────────────────────────────────────────────
+// Redirigen a las implementaciones centralizadas en src/lib/timezone.ts
+// para garantizar que todas las fechas del panel se muestran en
+// America/Bogota tanto en local como en Vercel.
 
-export function formatLastSeen(lastSeen: string | null): string {
-  if (!lastSeen) return '—'
-  const diff = Date.now() - new Date(lastSeen).getTime()
-  const secs = Math.floor(diff / 1000)
-  if (secs < 60) return 'Ahora'
-  const mins = Math.floor(secs / 60)
-  if (mins < 60) return `hace ${mins}m`
-  const hours = Math.floor(mins / 60)
-  if (hours < 24) return `hace ${hours}h`
-  const days = Math.floor(hours / 24)
-  if (days < 30) return `hace ${days}d`
-  return new Date(lastSeen).toLocaleDateString('es-ES', {
-    day: '2-digit',
-    month: 'short',
-  })
-}
-
-export function formatCreatedAt(date: string): string {
-  return new Date(date).toLocaleDateString('es-ES', {
-    day: '2-digit',
-    month: 'short',
-    year: '2-digit',
-  })
-}
+export { formatLastSeenInBogota as formatLastSeen } from '@/lib/timezone'
+export { formatCreatedAtInBogota as formatCreatedAt } from '@/lib/timezone'

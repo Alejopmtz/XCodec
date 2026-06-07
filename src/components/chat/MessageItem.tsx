@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { Trash2, Loader2 } from 'lucide-react'
 import { deleteMessage } from '@/actions/chat'
 import { useChatStore } from '@/store/chatStore'
+import { formatTimeInBogota } from '@/lib/timezone'
 import type { MessageWithSender } from '@/types/chat'
 
 // Paleta de colores por índice de hash (igual que getUserColor en admin)
@@ -34,10 +35,7 @@ function getInitials(name: string): string {
     .join('')
 }
 
-function formatTime(iso: string): string {
-  const d = new Date(iso)
-  return d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
-}
+// formatTimeInBogota: hora HH:MM en America/Bogota (importada de @/lib/timezone)
 
 interface MessageItemProps {
   message: MessageWithSender
@@ -107,7 +105,7 @@ export function MessageItem({ message, isOwn, isAdmin }: MessageItemProps) {
           )}
 
           <span className="font-mono text-2xs text-text-muted tabular-nums">
-            {formatTime(message.created_at)}
+            {formatTimeInBogota(message.created_at)}
           </span>
 
           {/* Acción eliminar — solo visible para admin al hacer hover */}

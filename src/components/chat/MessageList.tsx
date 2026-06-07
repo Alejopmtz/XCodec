@@ -11,6 +11,7 @@ import {
 import { Loader2, ChevronDown } from 'lucide-react'
 import { useChatStore } from '@/store/chatStore'
 import { useMessages } from '@/hooks/useMessages'
+import { toDateKeyInBogota, formatDateLabelInBogota } from '@/lib/timezone'
 import { MessageItem } from './MessageItem'
 import { DateSeparator } from './DateSeparator'
 import { MessageSkeletonList } from './MessageSkeleton'
@@ -23,34 +24,13 @@ interface MessageListProps {
 }
 
 // ── Helpers ───────────────────────────────────────────────────
-
-function toDateKey(iso: string): string {
-  return iso.split('T')[0]!
-}
-
-function formatDateLabel(isoDate: string): string {
-  const today = new Date()
-  const d = new Date(isoDate + 'T00:00:00')
-  const diff = Math.round(
-    (new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime() -
-      d.getTime()) /
-      86_400_000
-  )
-  if (diff === 0) return 'Hoy'
-  if (diff === 1) return 'Ayer'
-  return d
-    .toLocaleDateString('es-ES', {
-      day: '2-digit',
-      month: 'short',
-      year: d.getFullYear() !== today.getFullYear() ? 'numeric' : undefined,
-    })
-    .toUpperCase()
-}
+// toDateKeyInBogota e formatDateLabelInBogota importados de @/lib/timezone.
+// Reemplazan las versiones locales que usaban la zona horaria del servidor/browser.
 
 function groupByDate(msgs: MessageWithSender[]) {
   const map = new Map<string, MessageWithSender[]>()
   for (const msg of msgs) {
-    const key = toDateKey(msg.created_at)
+    const key = toDateKeyInBogota(msg.created_at)
     if (!map.has(key)) map.set(key, [])
     map.get(key)!.push(msg)
   }
@@ -180,7 +160,7 @@ export function MessageList({
           <div className="py-2">
             {grouped.map(({ date, messages: dayMsgs }) => (
               <Fragment key={date}>
-                <DateSeparator label={formatDateLabel(date)} />
+                <DateSeparator label={formatDateLabelInBogota(date)} />
                 {dayMsgs.map((msg) => (
                   <MessageItem
                     key={msg.id}

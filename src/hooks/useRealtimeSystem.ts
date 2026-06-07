@@ -5,42 +5,48 @@ import { createSupabaseBrowser } from '@/lib/supabase/client'
 import { useChatStore } from '@/store/chatStore'
 
 /**
- * Escucha eventos de sistema emitidos por el servidor vía
- * Supabase Realtime postgres_changes sobre la tabla system_events.
+ * Escucha eventos de borrado total del historial emitidos por PostgreSQL
+ * vía Supabase Realtime postgres_changes sobre la tabla messages.
  *
- * Evento: UPDATE en system_events WHERE key = 'chat_cleared'
+ * Evento: DELETE en messages
  *
- *   La Server Action clearAllMessages() invoca la RPC
- *   clear_all_messages(), que ejecuta en una única transacción:
- *     1. DELETE FROM messages
- *     2. UPDATE system_events SET updated_at = now() WHERE key = 'chat_cleared'
+ *   La Server Action clearAllMessages() ejecuta:
+ *     DELETE FROM messages WHERE id IS NOT NULL
  *
- *   Al confirmar la transacción, PostgreSQL emite el cambio
- *   en system_events vía WAL. Supabase Realtime lo entrega aquí
- *   como postgres_changes UPDATE. Entonces vaciamos el store local.
+ *   Cada fila eliminada genera un evento postgres_changes { event: 'DELETE' }.
+ *   La tabla messages está publicada en supabase_realtime (migración 002).
  *
- * Consistencia:
- *   La señal la emite PostgreSQL, no el navegador del admin.
- *   Si la transacción confirmó (RPC sin error), este evento
- *   SIEMPRE llega — salvo fallo de red entre Supabase Realtime
- *   y este cliente, inherente a cualquier sistema distribuido.
+ * Debounce:
+ *   Un borrado total genera múltiples eventos DELETE (uno por fila).
+ *   El debounce de 150 ms colapsa todos en una única llamada a reset(),
+ *   evitando renders innecesarios mientras los eventos llegan.
+ *
+ * Sin dependencia de migration 006:
+ *   Esta implementación no requiere la tabla system_events ni la RPC
+ *   clear_all_messages(). Solo depende de la tabla messages y de la
+ *   publicación en supabase_realtime (migración 002, siempre aplicada).
  */
 export function useRealtimeSystem() {
   const reset = useChatStore((s) => s.reset)
 
   useEffect(() => {
     const supabase = createSupabaseBrowser()
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null
 
     const channel = supabase
       .channel('xc-system')
       .on(
         'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'system_events' },
-        () => { reset() }
+        { event: 'DELETE', schema: 'public', table: 'messages' },
+        () => {
+          if (debounceTimer) clearTimeout(debounceTimer)
+          debounceTimer = setTimeout(() => reset(), 150)
+        }
       )
       .subscribe()
 
     return () => {
+      if (debounceTimer) clearTimeout(debounceTimer)
       supabase.removeChannel(channel)
     }
   }, [reset])
