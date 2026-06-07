@@ -34,6 +34,9 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   themeColor: '#0d1117',
+  // Requerido para que env(safe-area-inset-*) tenga efecto en iPhone
+  // con notch / Dynamic Island / Home Indicator.
+  viewportFit: 'cover',
 }
 
 export default function RootLayout({

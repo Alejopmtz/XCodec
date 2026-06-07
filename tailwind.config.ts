@@ -106,9 +106,12 @@ const config: Config = {
         },
 
         // ── Input ─────────────────────────────────────────────────
+        // text-base (16px) es el mínimo requerido para que iOS Safari
+        // NO haga zoom automático al enfocar el campo. Con text-sm (14px)
+        // el navegador amplía toda la página al tocar cualquier input.
         '.xc-input': {
           '@apply w-full rounded-md border border-border bg-overlay px-3 py-2': {},
-          '@apply font-mono text-sm text-text placeholder:text-text-muted': {},
+          '@apply font-mono text-base text-text placeholder:text-text-muted': {},
           '@apply focus:outline-none focus:border-signal-green': {},
           '@apply transition-colors duration-150': {},
           '&:focus': {

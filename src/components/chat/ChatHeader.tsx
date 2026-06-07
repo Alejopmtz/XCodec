@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { ShieldCheck, Terminal, LogOut, Settings } from 'lucide-react'
+import { ShieldCheck, Terminal, LogOut } from 'lucide-react'
 import { signOut } from '@/actions/auth'
 
 interface ChatHeaderProps {
@@ -12,7 +12,19 @@ interface ChatHeaderProps {
 
 export function ChatHeader({ displayName, isAdmin, onlineCount }: ChatHeaderProps) {
   return (
-    <header className="h-10 shrink-0 border-b border-border bg-surface flex items-center px-4 gap-3">
+    <header className="shrink-0 border-b border-border bg-surface">
+
+      {/*
+       * Espaciador de safe-area superior.
+       * En iPhone con notch / Dynamic Island, este div ocupa exactamente
+       * env(safe-area-inset-top) (≈47px en iPhone 14 Pro) para que el
+       * contenido del header no quede bajo la isla de hardware.
+       * En cualquier otro dispositivo env() devuelve 0 → altura 0 → invisible.
+       */}
+      <div className="chat-header-safe" />
+
+      {/* ── Fila de contenido ────────────────────────────────── */}
+      <div className="h-10 flex items-center px-4 gap-3">
 
       {/* ── Marca ─────────────────────────────────────────────── */}
       <div className="flex items-center gap-2 shrink-0">
@@ -75,6 +87,7 @@ export function ChatHeader({ displayName, isAdmin, onlineCount }: ChatHeaderProp
         </button>
       </form>
 
+      </div>{/* /fila de contenido */}
     </header>
   )
 }

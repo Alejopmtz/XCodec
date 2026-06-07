@@ -116,7 +116,7 @@ export function MessageInput({
   }
 
   return (
-    <div className="shrink-0 border-t border-border bg-surface px-4 py-3">
+    <div className="shrink-0 border-t border-border bg-surface px-4 pt-3 chat-input-safe">
 
       {/* Error de envío */}
       {error && (
@@ -135,7 +135,7 @@ export function MessageInput({
             onChange={handleChange}
             onKeyDown={handleKeyDown}
             rows={1}
-            placeholder="Escribe un mensaje… (Enter para enviar, Shift+Enter nueva línea)"
+            placeholder="Escribe un mensaje…"
             className="xc-input w-full resize-none overflow-y-auto leading-relaxed pr-2 py-2"
             style={{
               minHeight: '38px',

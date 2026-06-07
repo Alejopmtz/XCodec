@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useTransition } from 'react'
 import { Trash2, Loader2 } from 'lucide-react'
 import { deleteMessage } from '@/actions/chat'
 import { useChatStore } from '@/store/chatStore'
@@ -45,7 +45,6 @@ interface MessageItemProps {
 
 export function MessageItem({ message, isOwn, isAdmin }: MessageItemProps) {
   const [isPending, startTransition] = useTransition()
-  const [hover, setHover] = useState(false)
   const markDeleted = useChatStore((s) => s.markDeleted)
 
   const color    = getUsernameColor(message.sender_username)
@@ -70,11 +69,7 @@ export function MessageItem({ message, isOwn, isAdmin }: MessageItemProps) {
   }
 
   return (
-    <div
-      className="flex gap-3 px-4 py-1.5 group hover:bg-raised/30 transition-colors duration-75 rounded"
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
-    >
+    <div className="flex gap-3 px-4 py-1.5 group hover:bg-raised/30 transition-colors duration-75 rounded">
       {/* ── Avatar ──────────────────────────────────────────── */}
       <span
         className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-2xs font-mono font-semibold select-none mt-0.5"
@@ -108,12 +103,21 @@ export function MessageItem({ message, isOwn, isAdmin }: MessageItemProps) {
             {formatTimeInBogota(message.created_at)}
           </span>
 
-          {/* Acción eliminar — solo visible para admin al hacer hover */}
-          {isAdmin && hover && (
+          {/*
+           * Acción eliminar — admin only.
+           *
+           * Desktop (hover: hover): invisible por defecto, aparece al
+           * hacer hover sobre la fila gracias a group-hover:opacity-100.
+           *
+           * Móvil/tablet (hover: none): la clase .msg-delete-btn fuerza
+           * opacity:1 vía @media (hover: none) en globals.css, de modo
+           * que el botón es siempre visible y accesible en táctil.
+           */}
+          {isAdmin && (
             <button
               onClick={handleDelete}
               disabled={isPending}
-              className="ml-auto flex items-center gap-1 rounded px-1.5 py-0.5 font-mono text-2xs text-signal-red/60 hover:text-signal-red hover:bg-signal-red/8 transition-colors duration-100"
+              className="msg-delete-btn ml-auto flex items-center gap-1 rounded px-1.5 py-0.5 font-mono text-2xs opacity-0 group-hover:opacity-100 text-signal-red/60 hover:text-signal-red hover:bg-signal-red/8 active:text-signal-red active:bg-signal-red/8 transition-all duration-100"
               title="Eliminar mensaje"
             >
               {isPending ? (

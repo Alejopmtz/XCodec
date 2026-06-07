@@ -86,7 +86,7 @@ export function ChatShell({
   }, [router])
 
   return (
-    <div className="flex h-screen flex-col bg-base overflow-hidden">
+    <div className="flex h-dvh flex-col bg-base overflow-hidden">
 
       {/* ── Header ──────────────────────────────────────────── */}
       <ChatHeader

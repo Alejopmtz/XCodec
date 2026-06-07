@@ -3,6 +3,42 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Safe Area Utilities (iPhone notch / Dynamic Island / Home Indicator) ── */
+/*
+ * viewport-fit=cover (en layout.tsx) habilita env(safe-area-inset-*).
+ * Estas utilidades combinan el padding base del componente con la zona
+ * segura del dispositivo para que el contenido no quede bajo el hardware.
+ *
+ *  .chat-header-safe  → padding-top = safe-area-inset-top   (notch / isla)
+ *  .chat-input-safe   → padding-bottom = 0.75rem + safe-area-inset-bottom (home bar)
+ *
+ * En dispositivos sin safe area, env() devuelve 0 y el resultado es
+ * idéntico al padding original.
+ */
+@layer utilities {
+  .chat-header-safe {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .chat-input-safe {
+    /* 0.75rem = py-3 original. Se suma al home indicator (≈34px en iPhone X+). */
+    padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));
+  }
+}
+
+/* ── Botón eliminar mensaje: visible en dispositivos táctiles ── */
+/*
+ * En desktop (hover: hover) el botón se muestra solo al hacer hover
+ * sobre la fila del mensaje (opacity-0 group-hover:opacity-100).
+ * En móvil/tablet (hover: none) no existe hover, así que el botón
+ * debe ser visible siempre para que el admin pueda acceder a él.
+ */
+@media (hover: none) {
+  .msg-delete-btn {
+    opacity: 1 !important;
+  }
+}
+
 /* ── Reset base ─────────────────────────────────────────────── */
 @layer base {
   *,
