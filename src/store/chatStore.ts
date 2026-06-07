@@ -13,6 +13,10 @@ interface ChatState {
   prependMessages: (messages: MessageWithSender[]) => void
   appendMessage: (message: MessageWithSender) => void
   markDeleted: (messageId: string) => void
+  /** Reemplaza el ID temporal de un mensaje optimista por el ID real del servidor. */
+  replaceOptimistic: (tempId: string, realId: string, realCreatedAt: string) => void
+  /** Elimina un mensaje por ID (usado para rollback de optimistas fallidos). */
+  removeMessage: (messageId: string) => void
   setHasMore: (hasMore: boolean) => void
   setOldestCursor: (cursor: string | null) => void
   setIsLoadingMore: (loading: boolean) => void
@@ -45,6 +49,18 @@ export const useChatStore = create<ChatState>((set) => ({
       messages: state.messages.map((m) =>
         m.id === id ? { ...m, is_deleted: true } : m
       ),
+    })),
+
+  replaceOptimistic: (tempId, realId, realCreatedAt) =>
+    set((state) => ({
+      messages: state.messages.map((m) =>
+        m.id === tempId ? { ...m, id: realId, created_at: realCreatedAt } : m
+      ),
+    })),
+
+  removeMessage: (id) =>
+    set((state) => ({
+      messages: state.messages.filter((m) => m.id !== id),
     })),
 
   setHasMore: (hasMore) => set({ hasMore }),

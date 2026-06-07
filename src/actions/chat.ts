@@ -25,9 +25,11 @@ async function requireAuth(): Promise<SessionData> {
 // sendMessage
 // ══════════════════════════════════════════════════════════════
 
-export async function sendMessage(
-  rawContent: string
-): Promise<{ success: boolean; error?: string }> {
+export type SendMessageResult =
+  | { success: false; error: string }
+  | { success: true; id: string; created_at: string }
+
+export async function sendMessage(rawContent: string): Promise<SendMessageResult> {
   let session: SessionData
   try {
     session = await requireAuth()
@@ -37,22 +39,30 @@ export async function sendMessage(
 
   const parsed = sendSchema.safeParse({ content: rawContent })
   if (!parsed.success) {
-    return { success: false, error: parsed.error.errors[0]?.message }
+    return { success: false, error: parsed.error.errors[0]?.message ?? 'Mensaje inválido' }
   }
 
   const supabase = createSupabaseServer()
-  const { error } = await supabase.from('messages').insert({
-    content: parsed.data.content,
-    sender_id: session.userId,
-    is_deleted: false,
-  })
 
-  if (error) {
-    console.error('[sendMessage]', error.message)
+  // select('*').single() devuelve la fila insertada con id y created_at.
+  // Necesario para que el cliente pueda reemplazar el ID optimista temporal
+  // por el UUID real asignado por PostgreSQL.
+  const { data, error } = await supabase
+    .from('messages')
+    .insert({
+      content:    parsed.data.content,
+      sender_id:  session.userId,
+      is_deleted: false,
+    })
+    .select('*')
+    .single()
+
+  if (error || !data) {
+    console.error('[sendMessage]', error?.message)
     return { success: false, error: 'Error al enviar el mensaje' }
   }
 
-  return { success: true }
+  return { success: true, id: data.id, created_at: data.created_at }
 }
 
 // ══════════════════════════════════════════════════════════════

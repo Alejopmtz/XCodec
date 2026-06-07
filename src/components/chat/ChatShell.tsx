@@ -105,7 +105,11 @@ export function ChatShell({
             isAdmin={isAdmin}
             isInitialLoading={false}
           />
-          <MessageInput />
+          <MessageInput
+            currentUserId={currentUserId}
+            currentUsername={currentUsername}
+            currentDisplayName={currentDisplayName}
+          />
         </div>
 
         {/* Sidebar usuarios online */}

@@ -3,14 +3,29 @@
 import { useRef, useState, useTransition, useCallback } from 'react'
 import { Send, Loader2 } from 'lucide-react'
 import { sendMessage } from '@/actions/chat'
+import { useChatStore } from '@/store/chatStore'
 
 const MAX_LENGTH = 2000
 
-export function MessageInput() {
-  const [value, setValue]     = useState('')
-  const [error, setError]     = useState<string | null>(null)
-  const [isPending, startTransition] = useTransition()
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
+interface MessageInputProps {
+  currentUserId:      string
+  currentUsername:    string
+  currentDisplayName: string
+}
+
+export function MessageInput({
+  currentUserId,
+  currentUsername,
+  currentDisplayName,
+}: MessageInputProps) {
+  const [value, setValue]               = useState('')
+  const [error, setError]               = useState<string | null>(null)
+  const [isPending, startTransition]    = useTransition()
+  const textareaRef                     = useRef<HTMLTextAreaElement>(null)
+
+  const appendMessage     = useChatStore((s) => s.appendMessage)
+  const replaceOptimistic = useChatStore((s) => s.replaceOptimistic)
+  const removeMessage     = useChatStore((s) => s.removeMessage)
 
   const remaining = MAX_LENGTH - value.length
   const canSend   = value.trim().length > 0 && !isPending
@@ -30,22 +45,60 @@ export function MessageInput() {
     setError(null)
     const snapshot = content
     setValue('')
-    // Resetear altura y devolver foco inmediatamente.
-    // Se hace antes de startTransition para que el cursor nunca abandone
-    // el textarea, incluso si isPending deshabilita temporalmente el botón.
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto'
       textareaRef.current.focus()
     }
 
+    // ── Optimistic UI ─────────────────────────────────────────
+    // Añadir el mensaje al store de forma inmediata, antes de
+    // esperar la respuesta del servidor. El usuario ve su mensaje
+    // al instante (0 ms de latencia percibida).
+    //
+    // Usamos crypto.randomUUID() como ID temporal. Cuando la Server
+    // Action responde con el UUID real asignado por PostgreSQL,
+    // replaceOptimistic() sustituye el temp por el real. Cuando
+    // Supabase Realtime entrega el INSERT con el ID real,
+    // appendMessage() lo ignora por el dedup existente.
+    const tempId = crypto.randomUUID()
+    appendMessage({
+      id:                  tempId,
+      content:             snapshot,
+      sender_id:           currentUserId,
+      is_deleted:          false,
+      created_at:          new Date().toISOString(),
+      sender_username:     currentUsername,
+      sender_display_name: currentDisplayName,
+    })
+
     startTransition(async () => {
       const result = await sendMessage(snapshot)
+
       if (!result.success) {
+        // Rollback: quitar el mensaje optimista y restaurar el input
+        removeMessage(tempId)
         setError(result.error ?? 'Error al enviar')
-        setValue(snapshot) // restaurar si falla
+        setValue(snapshot)
+        textareaRef.current?.focus()
+        return
       }
+
+      // Reemplazar el ID temporal por el real del servidor.
+      // Garantiza que el dedup de Realtime funcione correctamente:
+      // cuando el evento INSERT llega, appendMessage() detecta
+      // que el ID ya existe y no duplica el mensaje.
+      replaceOptimistic(tempId, result.id, result.created_at)
     })
-  }, [value, isPending])
+  }, [
+    value,
+    isPending,
+    currentUserId,
+    currentUsername,
+    currentDisplayName,
+    appendMessage,
+    replaceOptimistic,
+    removeMessage,
+  ])
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -83,7 +136,7 @@ export function MessageInput() {
             onKeyDown={handleKeyDown}
             rows={1}
             placeholder="Escribe un mensaje… (Enter para enviar, Shift+Enter nueva línea)"
-            className="xc-input w-full resize-none overflow-y-auto leading-relaxed pr-2 py-2 disabled:opacity-50"
+            className="xc-input w-full resize-none overflow-y-auto leading-relaxed pr-2 py-2"
             style={{
               minHeight: '38px',
               maxHeight: '160px',
