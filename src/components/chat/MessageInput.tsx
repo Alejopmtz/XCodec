@@ -143,6 +143,25 @@ export function MessageInput({
               scrollbarWidth: 'thin',
               scrollbarColor: '#30363d transparent',
             }}
+            // ── Supresión de AutoFill Bar de iOS Safari ────────────────
+            // Sin estos atributos, Safari 16–17 muestra la barra de AutoFill
+            // (iconos 🔑 contraseñas / 💳 tarjetas / 📍 ubicación) por encima
+            // del teclado, ya que clasifica el textarea como campo elegible.
+            //
+            // autoComplete="off"     → señal primaria: deshabilita AutoFill
+            // autoCorrect="off"      → refuerzo: evita que Safari reinterprete
+            //                          el campo como "texto natural" y reactive
+            //                          el AutoFill aunque autoComplete sea "off"
+            // autoCapitalize="none"  → evita mayúscula automática al inicio de
+            //                          frase; señaliza que no es campo de prosa
+            // spellCheck={false}     → sin subrayado rojo en usernames y jerga
+            // enterKeyHint="send"    → cambia la tecla Return del teclado iOS
+            //                          al ícono "Enviar" (coherente con Enter)
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="none"
+            spellCheck={false}
+            enterKeyHint="send"
           />
         </div>
 
