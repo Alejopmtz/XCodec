@@ -116,7 +116,7 @@ export function MessageInput({
   }
 
   return (
-    <div className="shrink-0 border-t border-border bg-surface px-4 pt-3 chat-input-safe">
+    <div className="shrink-0 border-t border-border bg-surface px-4 pt-2 chat-input-safe">
 
       {/* Error de envío */}
       {error && (
@@ -125,7 +125,7 @@ export function MessageInput({
         </p>
       )}
 
-      <div className="flex items-end gap-3">
+      <div className="flex items-center gap-3">
 
         {/* ── Textarea ─────────────────────────────────────── */}
         <div className="flex-1 relative">

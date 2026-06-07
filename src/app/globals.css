@@ -21,8 +21,20 @@
   }
 
   .chat-input-safe {
-    /* 0.75rem = py-3 original. Se suma al home indicator (≈34px en iPhone X+). */
-    padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));
+    /*
+     * max() en lugar de calc() — elimina el comportamiento aditivo.
+     *
+     * calc(0.75rem + env(...)) sumaba base + safe-area → 12px + 34px = 46px
+     * en iPhone con home indicator: gap visible entre input y teclado.
+     *
+     * max(0.75rem, env(...)) toma el mayor de los dos, nunca la suma:
+     *   - Sin safe area (Android, iPhone con botón inicio):     max(12px, 0)   = 12px ✓
+     *   - iPhone, teclado cerrado (home indicator visible):     max(12px, 34px) = 34px ✓
+     *   - iPhone, teclado abierto (iOS 15+, env actualiza → 0): max(12px, 0)   = 12px ✓
+     *   - iPhone, teclado abierto (iOS 14, env no actualiza):   max(12px, 34px) = 34px
+     *     → gap residual de 34px; limitación de plataforma sin solución CSS.
+     */
+    padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
   }
 }
 

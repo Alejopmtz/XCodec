@@ -194,7 +194,7 @@ export function MessageList({
 
       {/* Mensajes agrupados por día */}
       {!isInitialLoading && (
-        <div className="py-2">
+        <div className="py-1 md:py-2">
           {grouped.map(({ date, messages: dayMsgs }) => (
             <Fragment key={date}>
               <DateSeparator label={formatDateLabelInBogota(date)} />
