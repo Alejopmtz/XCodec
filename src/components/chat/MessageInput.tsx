@@ -30,9 +30,12 @@ export function MessageInput() {
     setError(null)
     const snapshot = content
     setValue('')
-    // Resetear altura
+    // Resetear altura y devolver foco inmediatamente.
+    // Se hace antes de startTransition para que el cursor nunca abandone
+    // el textarea, incluso si isPending deshabilita temporalmente el botón.
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto'
+      textareaRef.current.focus()
     }
 
     startTransition(async () => {
@@ -78,7 +81,6 @@ export function MessageInput() {
             value={value}
             onChange={handleChange}
             onKeyDown={handleKeyDown}
-            disabled={isPending}
             rows={1}
             placeholder="Escribe un mensaje… (Enter para enviar, Shift+Enter nueva línea)"
             className="xc-input w-full resize-none overflow-y-auto leading-relaxed pr-2 py-2 disabled:opacity-50"
