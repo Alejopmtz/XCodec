@@ -51,7 +51,7 @@ export default function RootLayout({
       className={`${inter.variable} ${ibmPlexMono.variable}`}
       suppressHydrationWarning
     >
-      <body className="bg-base text-text font-mono antialiased min-h-screen">
+      <body className="bg-base text-text font-mono antialiased">
         {children}
       </body>
     </html>

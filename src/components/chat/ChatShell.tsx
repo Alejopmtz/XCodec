@@ -89,8 +89,32 @@ export function ChatShell({
     return () => clearInterval(id)
   }, [router])
 
+  // ── Bloquear scroll del body mientras el chat está montado ──
+  //
+  // Problema: body tiene altura determinada por el documento. En iOS Safari,
+  // cuando el usuario toca el textarea, el navegador hace scroll automático
+  // del body para centrar el input sobre el teclado. Aunque el ChatShell
+  // tiene h-dvh, el body puede scrollear más que eso, desplazando el
+  // ChatShell fuera de pantalla y ocultando el header.
+  //
+  // Solución: overflow:hidden en el body impide ese scroll mientras el chat
+  // está activo. Se restaura al desmontar para no afectar otras páginas.
+  useEffect(() => {
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = prev
+    }
+  }, [])
+
   return (
-    <div className="flex h-dvh flex-col bg-base overflow-hidden">
+    // overflow-hidden eliminado: causaba que los elementos con
+    // position:fixed (UsersDrawer) se posicionaran relativo a este
+    // contenedor en lugar del viewport, disparando un bug de compositing
+    // de iOS Safari que desalineaba el layout completo al abrir el teclado.
+    // h-dvh es suficiente para contener la altura — los hijos con
+    // flex-1 + min-h-0 + overflow-y-auto manejan su propio scroll.
+    <div className="flex h-dvh flex-col bg-base">
 
       {/* ── Header ──────────────────────────────────────────── */}
       <ChatHeader

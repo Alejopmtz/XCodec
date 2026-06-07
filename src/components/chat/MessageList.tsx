@@ -119,80 +119,96 @@ export function MessageList({
   const grouped = groupByDate(messages)
 
   return (
-    <div className="relative flex-1 min-h-0">
+    // El div anterior tenía dos niveles:
+    //   <div class="relative flex-1 min-h-0">       ← flex item + base para absolute
+    //     <div class="h-full overflow-y-auto">       ← scroll container
+    //
+    // El problema: h-full dentro de un flex item (flex-1 min-h-0) sin altura
+    // explícita falla en iOS Safari cuando la cadena de flex tiene más de
+    // 3 niveles de profundidad. iOS no resuelve correctamente h-full contra
+    // una altura derivada de flex-1, lo que colapsa el scroll container a 0px.
+    //
+    // Solución: fusionar ambos divs. El mismo elemento es el flex item
+    // (flex-1 min-h-0) Y el scroll container (overflow-y-auto).
+    // relative se mantiene para el botón "ir al fondo" (position: absolute).
+    // containerRef se mueve a este elemento unificado.
+    <div
+      ref={containerRef}
+      className="relative flex-1 min-h-0 overflow-y-auto"
+      style={{
+        scrollbarWidth: 'thin',
+        scrollbarColor: '#30363d transparent',
+        overscrollBehavior: 'contain',
+      }}
+    >
+      {/* Sentinel para paginación hacia arriba */}
+      <div ref={topRef} className="h-1" />
 
-      {/* ── Lista ─────────────────────────────────────────────── */}
-      <div
-        ref={containerRef}
-        className="h-full overflow-y-auto"
-        style={{
-            scrollbarWidth: 'thin',
-            scrollbarColor: '#30363d transparent',
-            // Previene que el scroll propague al body en iOS/Android:
-            // evita pull-to-refresh accidental y el bounce de página.
-            overscrollBehavior: 'contain',
-          }}
-      >
-        {/* Sentinel para paginación hacia arriba */}
-        <div ref={topRef} className="h-1" />
+      {isLoadingMore && (
+        <div className="flex justify-center py-3">
+          <Loader2 size={14} className="animate-spin text-text-muted" />
+        </div>
+      )}
 
-        {isLoadingMore && (
-          <div className="flex justify-center py-3">
-            <Loader2 size={14} className="animate-spin text-text-muted" />
-          </div>
-        )}
+      {/* Estado vacío */}
+      {!isInitialLoading && messages.length === 0 && (
+        <div className="flex flex-col items-center justify-center min-h-full gap-2 px-8 py-16 text-center">
+          <p className="font-mono text-sm text-text-muted">
+            Canal vacío
+          </p>
+          <p className="font-mono text-xs text-text-muted opacity-50">
+            Sé el primero en escribir algo.
+          </p>
+        </div>
+      )}
 
-        {/* Estado vacío */}
-        {!isInitialLoading && messages.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-full gap-2 px-8 py-16 text-center">
-            <p className="font-mono text-sm text-text-muted">
-              Canal vacío
-            </p>
-            <p className="font-mono text-xs text-text-muted opacity-50">
-              Sé el primero en escribir algo.
-            </p>
-          </div>
-        )}
+      {/* Esqueletos */}
+      {isInitialLoading && (
+        <div className="pt-4">
+          <MessageSkeletonList count={8} />
+        </div>
+      )}
 
-        {/* Esqueletos */}
-        {isInitialLoading && (
-          <div className="pt-4">
-            <MessageSkeletonList count={8} />
-          </div>
-        )}
+      {/* Mensajes agrupados por día */}
+      {!isInitialLoading && (
+        <div className="py-2">
+          {grouped.map(({ date, messages: dayMsgs }) => (
+            <Fragment key={date}>
+              <DateSeparator label={formatDateLabelInBogota(date)} />
+              {dayMsgs.map((msg) => (
+                <MessageItem
+                  key={msg.id}
+                  message={msg}
+                  isOwn={msg.sender_id === currentUserId}
+                  isAdmin={isAdmin}
+                />
+              ))}
+            </Fragment>
+          ))}
+        </div>
+      )}
 
-        {/* Mensajes agrupados por día */}
-        {!isInitialLoading && (
-          <div className="py-2">
-            {grouped.map(({ date, messages: dayMsgs }) => (
-              <Fragment key={date}>
-                <DateSeparator label={formatDateLabelInBogota(date)} />
-                {dayMsgs.map((msg) => (
-                  <MessageItem
-                    key={msg.id}
-                    message={msg}
-                    isOwn={msg.sender_id === currentUserId}
-                    isAdmin={isAdmin}
-                  />
-                ))}
-              </Fragment>
-            ))}
-          </div>
-        )}
+      {/* Ancla para scroll al fondo */}
+      <div ref={bottomRef} className="h-2" />
 
-        {/* Ancla para scroll al fondo */}
-        <div ref={bottomRef} className="h-2" />
-      </div>
-
-      {/* ── Botón "ir al fondo" ───────────────────────────────── */}
+      {/* ── Botón "ir al fondo" ─────────────────────────────── */}
+      {/*
+       * sticky en lugar de absolute: con overflow-y-auto en el mismo
+       * div, un hijo absolute se posicionaría dentro del flujo de scroll
+       * (al final del contenido), no fijo en la esquina visible.
+       * sticky bottom-3 right-3 mantiene el botón visible en la esquina
+       * inferior derecha del área de scroll sin importar la posición del scroll.
+       */}
       {!atBottom && (
-        <button
-          onClick={scrollToBottom}
-          className="absolute bottom-3 right-3 z-10 flex h-7 w-7 items-center justify-center rounded-full border border-border bg-overlay shadow-elevation-2 text-text-secondary hover:text-text transition-colors duration-100"
-          title="Ir al fondo"
-        >
-          <ChevronDown size={14} />
-        </button>
+        <div className="sticky bottom-3 z-10 flex justify-end pr-3 pointer-events-none">
+          <button
+            onClick={scrollToBottom}
+            className="pointer-events-auto flex h-7 w-7 items-center justify-center rounded-full border border-border bg-overlay shadow-elevation-2 text-text-secondary hover:text-text transition-colors duration-100"
+            title="Ir al fondo"
+          >
+            <ChevronDown size={14} />
+          </button>
+        </div>
       )}
 
     </div>
