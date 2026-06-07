@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState } from 'react'
 import { AlertTriangle, Trash2, X, Loader2 } from 'lucide-react'
 import { deleteUser } from '@/actions/users'
 import { useToastStore } from '@/store/toastStore'
@@ -23,28 +23,34 @@ export function DeleteUserModal({
 }: DeleteUserModalProps) {
   const [input,      setInput]      = useState('')
   const [formError,  setFormError]  = useState<string | null>(null)
-  const [isPending,  startTransition] = useTransition()
+  const [isPending,  setIsPending]  = useState(false)
 
   const showToast = useToastStore((s) => s.showToast)
 
   const isConfirmed = input === CONFIRM_TEXT
 
-  function handleConfirm() {
+  async function handleConfirm() {
     if (!isConfirmed || isPending) return
     setFormError(null)
+    setIsPending(true)
 
-    startTransition(async () => {
+    try {
       const result = await deleteUser(user.id)
 
       if (!result.success) {
-        setFormError(result.error)
+        setFormError(result.error ?? 'Error desconocido')
         return
       }
 
       showToast('success', `Usuario @${user.username} eliminado`)
       onDeleted()
       onClose()
-    })
+    } catch (err) {
+      console.error('[DeleteUserModal]', err)
+      setFormError('Error inesperado. Intenta de nuevo.')
+    } finally {
+      setIsPending(false)
+    }
   }
 
   function handleBackdropClick(e: React.MouseEvent<HTMLDivElement>) {

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState } from 'react'
 import { AlertTriangle, MessageSquareX, X, Loader2 } from 'lucide-react'
 import { clearAllMessages } from '@/actions/chat'
 import { useToastStore } from '@/store/toastStore'
@@ -14,17 +14,18 @@ const CONFIRM_TEXT = 'ELIMINAR CHAT'
 export function ClearChatModal({ onClose }: ClearChatModalProps) {
   const [input,     setInput]     = useState('')
   const [formError, setFormError] = useState<string | null>(null)
-  const [isPending, startTransition] = useTransition()
+  const [isPending, setIsPending] = useState(false)
 
   const showToast = useToastStore((s) => s.showToast)
 
   const isConfirmed = input === CONFIRM_TEXT
 
-  function handleConfirm() {
+  async function handleConfirm() {
     if (!isConfirmed || isPending) return
     setFormError(null)
+    setIsPending(true)
 
-    startTransition(async () => {
+    try {
       const result = await clearAllMessages()
 
       if (!result.success) {
@@ -37,7 +38,12 @@ export function ClearChatModal({ onClose }: ClearChatModalProps) {
       // No se requiere ninguna acción adicional en el cliente.
       showToast('success', 'Historial de chat eliminado correctamente')
       onClose()
-    })
+    } catch (err) {
+      console.error('[ClearChatModal]', err)
+      setFormError('Error inesperado. Intenta de nuevo.')
+    } finally {
+      setIsPending(false)
+    }
   }
 
   function handleBackdropClick(e: React.MouseEvent<HTMLDivElement>) {
