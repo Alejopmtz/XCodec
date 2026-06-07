@@ -201,13 +201,23 @@ export async function reactivateUser(
 }
 
 // ══════════════════════════════════════════════════════════════
-// deleteUser — Eliminación permanente de cuenta
+// deleteUser — Eliminación física de cuenta
 // ══════════════════════════════════════════════════════════════
-// A diferencia de deactivateUser (desactivación reversible),
-// deleteUser limpia también setup_token para que la cuenta
-// no pueda reactivarse incluso con un token de activación previo.
-// La sesión activa del usuario, si existe, quedará invalidada
-// en el próximo heartbeat (máx. 30 s).
+// Borra la fila de la tabla users. PostgreSQL propaga el DELETE:
+//
+//   messages.sender_id → users.id  ON DELETE CASCADE
+//     → todos los mensajes del usuario son eliminados físicamente.
+//
+//   users.created_by → users.id    ON DELETE SET NULL
+//     → los usuarios creados por este admin conservan su fila
+//       pero quedan con created_by = NULL (no bloquea el DELETE).
+//
+// Sesiones activas: el próximo heartbeat (≤ 30 s) recibe un SELECT
+// que devuelve null → responde 401 → el cliente redirige a /login.
+//
+// Protecciones dobles (frontend + backend):
+//   .eq('is_admin', false)  — nunca elimina otro admin
+//   userId !== session.userId — nunca se elimina a sí mismo
 export async function deleteUser(userId: string): Promise<UserActionResult> {
   const session = await requireAdmin()
 
@@ -217,15 +227,11 @@ export async function deleteUser(userId: string): Promise<UserActionResult> {
 
   const supabase = createSupabaseServer()
 
-  // .eq('is_admin', false) impide eliminar a otro admin aunque el frontend
-  // ya oculta la acción para usuarios con is_admin = true.
+  // DELETE físico. .select('id').single() convierte 0 filas afectadas
+  // (usuario inexistente o intento de borrar un admin) en error detectable.
   const { data, error } = await supabase
     .from('users')
-    .update({
-      is_active:              false,
-      setup_token:            null,
-      setup_token_expires_at: null,
-    })
+    .delete()
     .eq('id', userId)
     .eq('is_admin', false)
     .select('id')
