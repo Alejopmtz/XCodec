@@ -134,13 +134,34 @@ export function MessageList({
     // containerRef se mueve a este elemento unificado.
     <div
       ref={containerRef}
-      className="relative flex-1 min-h-0 overflow-y-auto"
+      className="relative flex-1 min-h-0 overflow-y-auto flex flex-col md:block"
       style={{
         scrollbarWidth: 'thin',
         scrollbarColor: '#30363d transparent',
         overscrollBehavior: 'contain',
       }}
     >
+      {/*
+       * Espaciador móvil — comportamiento WhatsApp/Telegram.
+       *
+       * Solo se renderiza cuando hay mensajes y en pantallas <768px
+       * (md:hidden lo elimina por completo en tablet y desktop).
+       *
+       * Mecánica:
+       *   El contenedor padre es flex-col en móvil. Este div con flex-1
+       *   absorbe el espacio libre ANTES de los mensajes.
+       *   - Pocos mensajes: spacer crece → mensajes apoyados sobre el input.
+       *   - Muchos mensajes: el contenido total supera la altura del
+       *     contenedor → el algoritmo flex colapsa el spacer a 0 y
+       *     overflow-y-auto activa el scroll. Comportamiento idéntico al actual.
+       *
+       * En desktop (md:block en el padre) este div es display:none:
+       * no tiene ningún efecto sobre el layout.
+       */}
+      {messages.length > 0 && (
+        <div className="flex-1 md:hidden" aria-hidden="true" />
+      )}
+
       {/* Sentinel para paginación hacia arriba */}
       <div ref={topRef} className="h-1" />
 
@@ -152,7 +173,9 @@ export function MessageList({
 
       {/* Estado vacío */}
       {!isInitialLoading && messages.length === 0 && (
-        <div className="flex flex-col items-center justify-center min-h-full gap-2 px-8 py-16 text-center">
+        // flex-1: ocupa todo el espacio del contenedor en contexto flex (móvil)
+        // y en desktop (md:block) min-h-full lo hace equivalente al comportamiento anterior.
+        <div className="flex-1 flex flex-col items-center justify-center gap-2 px-8 py-16 text-center md:min-h-full md:flex-none">
           <p className="font-mono text-sm text-text-muted">
             Canal vacío
           </p>
